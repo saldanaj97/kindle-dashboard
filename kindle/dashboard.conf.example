@@ -1,0 +1,16 @@
+# Copy to dashboard.conf, fill in, then chmod 600 dashboard.conf.
+# Read by dashboard.sh as a shell file. Do not commit the real one.
+
+BASE_URL="https://dashboard.example.com"
+SCREEN="trade-plans"
+CF_ACCESS_CLIENT_ID="replace-me.access"
+CF_ACCESS_CLIENT_SECRET="replace-me"
+
+# Seconds between fetches (default 600).
+REFRESH_SECONDS=600
+# Where the last good image and log live (default /mnt/us/dashboard).
+CACHE_DIR="/mnt/us/dashboard"
+# Optional: CA bundle for curl --cacert, if the Kindle's curl rejects the TLS cert.
+CA_BUNDLE=""
+# Optional, untested on device: 1 keeps the screensaver from replacing the image.
+PREVENT_SCREENSAVER=0

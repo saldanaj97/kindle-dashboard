@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kindle-dashboard",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  // Screens must only be reachable through the custom domain that sits behind
+  // Cloudflare Access. A *.workers.dev or preview URL would bypass Access.
+  "workers_dev": false,
+  "preview_urls": false,
+  "rules": [
+    { "type": "Data", "globs": ["**/*.woff"], "fallthrough": true }
+  ],
+  // Latest payload per source. No namespace id yet: local dev and tests
+  // simulate KV. Before the first deploy the owner creates the namespace and
+  // adds its "id" here (see README).
+  "kv_namespaces": [
+    { "binding": "DASHBOARD_KV" }
+  ],
+  // Per-producer ingest secrets. Set with `wrangler secret put <NAME>` when
+  // deploying; locally they come from .dev.vars (see .dev.vars.example).
+  "secrets": {
+    "required": ["INGEST_SECRET_TRADING", "INGEST_SECRET_SUMMARY"]
+  },
+  "vars": {
+    "DISPLAY_TZ": "America/New_York"
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/saldanaj97/kindle-dashboard/contract/trade-plans.schema.json",
+  "title": "Trade plans",
+  "description": "Open trade plans pushed by the trading producer. Read-only data for display; nothing here triggers an action.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "as_of",
+    "plans"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "as_of": {
+      "description": "When the producer read this data (RFC 3339 with offset). Quotes and plan state are as of this time.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "market_status": {
+      "description": "Market state the producer saw at as_of. Optional; the backend also checks regular trading hours itself.",
+      "enum": [
+        "pre-market",
+        "open",
+        "after-hours",
+        "closed"
+      ]
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$",
+      "default": "USD"
+    },
+    "plans": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "$ref": "#/$defs/plan"
+      },
+      "description": "Open positions are shown first. Plans that don't fit on the screen are counted in a \"+ N more\" line."
+    }
+  },
+  "$defs": {
+    "price": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "symbol",
+        "side",
+        "status",
+        "entry",
+        "stop",
+        "target",
+        "quantity"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "symbol": {
+          "type": "string",
+          "pattern": "^[A-Z0-9.\\-]{1,10}$"
+        },
+        "side": {
+          "enum": [
+            "long",
+            "short"
+          ]
+        },
+        "status": {
+          "description": "watching: plan set, not entered. open: position entered.",
+          "enum": [
+            "watching",
+            "open"
+          ]
+        },
+        "entry": {
+          "$ref": "#/$defs/price"
+        },
+        "stop": {
+          "$ref": "#/$defs/price"
+        },
+        "target": {
+          "$ref": "#/$defs/price"
+        },
+        "last": {
+          "description": "Last trade price at as_of. Used for distance to stop.",
+          "$ref": "#/$defs/price"
+        },
+        "quantity": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 80
+        }
+      },
+      "description": "Prices must be ordered by side, checked by the Worker after the schema: long stop < entry < target; short target < entry < stop."
+    }
+  }
+}

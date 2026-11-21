@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-11-20T08:45:00-05:00",
+  "market_status": "pre-market",
+  "session": "pre-market",
+  "headline": "Futures flat ahead of jobs data",
+  "points": [
+    "Index futures within 0.2% of yesterday's close.",
+    "ACME holding above its breakout level in pre-market trading.",
+    "No earnings from names on the plan list today.",
+    "Keep size small until the 10:00 data release."
+  ],
+  "indices": [
+    { "symbol": "SPX", "last": 6012.5, "change_pct": 0.12 },
+    { "symbol": "NDX", "last": 21480.0, "change_pct": -0.08 },
+    { "symbol": "RUT", "last": 2290.4, "change_pct": 0.31 }
+  ],
+  "plans": { "watching": 2, "open": 2, "closed_today": 0 },
+  "watch": ["ACME", "WIDG", "FOOB"]
+}

@@ -1,0 +1,5 @@
+# Local-only ingest secrets for `wrangler dev`, tests and the preview script.
+# Copy to .dev.vars (gitignored). Deployed secrets are set with
+# `wrangler secret put`, never committed.
+INGEST_SECRET_TRADING="local-dev-trading-secret"
+INGEST_SECRET_SUMMARY="local-dev-summary-secret"

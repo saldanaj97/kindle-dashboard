@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-11-18T08:45:00-05:00",
+  "market_status": "pre-market",
+  "session": "pre-market",
+  "headline": "Breadth widened into the afternoon while megacap names lagged and rates drifted.",
+  "points": [
+    "Breadth widened into the afternoon while megacap names lagged and rates drifted higher after the auction which kept small caps bid into the close today Breadth.",
+    "Breadth widened into the afternoon while megacap names lagged and rates drifted higher after the auction which kept small caps bid into the close today Breadth.",
+    "Breadth widened into the afternoon while megacap names lagged and rates drifted higher after the auction which kept small caps bid into the close today Breadth.",
+    "Breadth widened into the afternoon while megacap names lagged and rates drifted higher after the auction which kept small caps bid into the close today Breadth.",
+    "Breadth widened into the afternoon while megacap names lagged and rates drifted higher after the auction which kept small caps bid into the close today Breadth.",
+    "Breadth widened into the afternoon while megacap names lagged and rates drifted higher after the auction which kept small caps bid into the close today Breadth.",
+    "Breadth widened into the afternoon while megacap names lagged and rates drifted higher after the auction which kept small caps bid into the close today Breadth.",
+    "Breadth widened into the afternoon while megacap names lagged and rates drifted higher after the auction which kept small caps bid into the close today Breadth."
+  ],
+  "indices": [
+    {
+      "symbol": "WWWWWW",
+      "last": 9999999.99,
+      "change_pct": -99.99
+    },
+    {
+      "symbol": "MMMMMM",
+      "last": 9999999.99,
+      "change_pct": 99.99
+    },
+    {
+      "symbol": "NDX",
+      "last": 9999999.99,
+      "change_pct": -0.001
+    },
+    {
+      "symbol": "RUT",
+      "last": 9999999.99,
+      "change_pct": 12.5
+    }
+  ],
+  "plans": {
+    "watching": 999,
+    "open": 999,
+    "closed_today": 999
+  },
+  "watch": [
+    "WWWWWWWWWWWW",
+    "MMMMMMMMMMMM",
+    "ACME",
+    "GLOBX",
+    "WIDG",
+    "FOOB",
+    "BARQ",
+    "ZEDD",
+    "QUUX",
+    "PLUGH"
+  ]
+}

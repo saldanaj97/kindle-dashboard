@@ -10,23 +10,27 @@ This file is the single source of instructions for every agent. `CLAUDE.md` impo
 2. **The Kindle is a display, nothing more.** No endpoint the Kindle can reach may trigger an action: no orders, no writes to outside services, no changes to producer state.
 3. **The backend never holds trading credentials.** Producers fetch their own data and push it here. A producer that needs a broker or account token keeps that token in its own repo and runtime.
 4. **Every request is authenticated.** Producers send a per-producer ingest secret. Screens sit behind Cloudflare Access and the Kindle uses a service token.
-5. **Every screen shows when its data is from.** Print the data timestamp, and show a stale banner when the data is older than the screen's refresh interval allows or when the market is closed.
+5. **Every screen shows when its data is from.** Print the data timestamp, and show a stale banner when the data is older than the screen's refresh interval allows, counting only time the market was open. Show a closed market as a separate, quieter notice, not as stale, unless the screen's own label already says the session (pre-market / end of day).
 6. **Track work in GitHub Issues, not Linear.** This project files no Linear issues. Issues are public like the repo, so anything private goes in the owner's Notion, with only a link in the issue.
 
 ## Cloudflare
 
-- The backend will have a Wrangler config, so use `wrangler` in this repo rather than `cf`.
+- The backend has a Wrangler config (`worker/wrangler.jsonc`), so use `wrangler` in this repo rather than `cf`.
 - Account-level setup (Access applications, service tokens, custom domains, plan changes) is done by the owner. When work reaches one of those steps, stop and give an exact checklist.
 
-## Layout (planned)
+## Layout
 
 ```
-worker/     Cloudflare Worker: ingest API, storage, rendering, screen routes
+worker/     Cloudflare Worker: ingest API, KV storage, rendering, screen routes, tests
+contract/   Data contract producers follow (JSON schema per source, made-up examples)
 kindle/     Scripts installed on the Kindle (fetch, display, sleep)
-contract/   Data contract producers follow (JSON schema per source)
 ```
 
-Create a folder when its first code lands.
+Create a new top-level folder only when its first code lands.
+
+## Commands
+
+Run from `worker/`: `npm test` (Vitest in workerd via `@cloudflare/vitest-plugin`), `npm run typecheck`, `npm run preview` (PNGs to `out/`), `npm run dev`. After changing `wrangler.jsonc`, run `npm run types` to regenerate `worker-configuration.d.ts`.
 
 ## Open decisions
 
