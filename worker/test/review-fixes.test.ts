@@ -204,3 +204,48 @@ describe("onceWithRetry", () => {
     expect(calls).toBe(2);
   });
 });
+
+describe("summary stale limit by session", () => {
+  beforeEach(clearKv);
+
+  const summaryAt = (session: "pre-market" | "end-of-day", asOf: string) => ({
+    schema_version: 1,
+    as_of: asOf,
+    session,
+    headline: "Made-up headline",
+    points: ["Made-up point."],
+  });
+  const staleAt = async (body: object, nowIso: string) => {
+    expect((await ingest("market-summary", body, { secret: SUMMARY_SECRET })).status).toBe(204);
+    return (await renderScreen("market-summary", env, new Date(nowIso))).freshness;
+  };
+
+  it("uses 30 min for end-of-day and 7 h for pre-market", async () => {
+    const { maxAgeFor } = await import("../src/config");
+    expect(maxAgeFor("market-summary", { session: "end-of-day" })).toBe(30 * 60);
+    expect(maxAgeFor("market-summary", { session: "pre-market" })).toBe(7 * 3600);
+    expect(maxAgeFor("market-summary", null)).toBe(7 * 3600);
+    expect(maxAgeFor("trade-plans", null)).toBe(20 * 60);
+  });
+
+  // Tuesday 2026-11-17 end-of-day summary at 16:30 ET.
+  const tueEod = summaryAt("end-of-day", "2026-11-17T16:30:00-05:00");
+
+  it("Tuesday's end-of-day summary is fresh overnight", async () => {
+    expect((await staleAt(tueEod, "2026-11-18T03:00:00Z")).stale).toBe(false); // Tue 22:00 ET
+  });
+
+  it("is fresh at Wednesday 09:59 ET", async () => {
+    expect((await staleAt(tueEod, "2026-11-18T14:59:00Z")).stale).toBe(false);
+  });
+
+  it("is stale at Wednesday 10:01 ET when no pre-market summary replaced it", async () => {
+    const f = await staleAt(tueEod, "2026-11-18T15:01:00Z");
+    expect(f.reasons).toEqual([{ kind: "too-old", marketAgeSeconds: 31 * 60, maxAgeSeconds: 30 * 60 }]);
+  });
+
+  it("a pre-market summary is still fresh at that day's 15:59 ET", async () => {
+    const pre = summaryAt("pre-market", "2026-11-18T08:45:00-05:00");
+    expect((await staleAt(pre, "2026-11-18T20:59:00Z")).stale).toBe(false);
+  });
+});

@@ -1,4 +1,4 @@
-import { SCREENS, type ScreenName } from "../config";
+import { SCREENS, maxAgeFor, type ScreenName } from "../config";
 import { evaluateFreshness, type Freshness, type MarketStatus } from "../freshness";
 import { renderPng, type Child } from "../render";
 import { getLatest } from "../store";
@@ -33,11 +33,12 @@ export async function renderScreen(name: ScreenName, env: Env, now: Date): Promi
   const freshness = evaluateFreshness({
     asOf,
     now,
-    maxAgeSeconds: screen.maxAgeSeconds,
+    maxAgeSeconds: maxAgeFor(name, payload as { session?: unknown } | null),
     marketStatus: payload?.market_status,
   });
   const body = (BODIES[name] as (p: unknown, bannerShown: boolean) => Child)(payload, freshness.stale);
-  const png = await renderPng(frame({
+  const png = await renderPng(
+    frame({
       title: screen.title,
       asOf,
       freshness,
@@ -45,6 +46,7 @@ export async function renderScreen(name: ScreenName, env: Env, now: Date): Promi
       timeZone: env.DISPLAY_TZ,
       marketNotice: screen.marketNotice,
       body,
-    }));
+    }),
+  );
   return { png, asOf, freshness };
 }

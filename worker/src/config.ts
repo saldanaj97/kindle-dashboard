@@ -40,6 +40,11 @@ export interface ScreenConfig {
    */
   maxAgeSeconds: number;
   /**
+   * Per-session limits, keyed by the payload's `session` field. Used instead
+   * of maxAgeSeconds when the payload's session is listed here.
+   */
+  maxAgeBySession?: Record<string, number>;
+  /**
    * Show the quieter "market closed" notice. Off for screens that are read
    * while the market is closed by design, such as the pre-market summary.
    */
@@ -52,13 +57,32 @@ export const SCREENS = {
   // market minutes allows for one or two missed pushes.
   "trade-plans": { source: "trade-plans", title: "Trade plans", maxAgeSeconds: 20 * 60, marketNotice: true },
   // Summary agent writes a pre-market summary before the open and an
-  // end-of-day one after the close. A pre-market summary legitimately ages
-  // through the whole 6.5 h session, so the limit is one session plus 30 min:
-  // a summary goes stale 30 minutes into the second session after it.
-  "market-summary": { source: "market-summary", title: "Market summary", maxAgeSeconds: 7 * 60 * 60, marketNotice: false },
+  // end-of-day one after the close. The limit depends on which one is shown:
+  // - pre-market: stays up for its whole 6.5 h session, so one session + 30 min.
+  // - end-of-day: should be replaced by the next pre-market summary before the
+  //   open, so it goes stale 30 market minutes into the next session (10:00 ET).
+  // Market-hours age does not advance while the market is closed, so a missing
+  // summary cannot be flagged before the open or in the evening.
+  "market-summary": {
+    source: "market-summary",
+    title: "Market summary",
+    maxAgeSeconds: 7 * 60 * 60,
+    maxAgeBySession: { "pre-market": 7 * 60 * 60, "end-of-day": 30 * 60 },
+    marketNotice: false,
+  },
 } as const satisfies Record<string, ScreenConfig>;
 
 export type ScreenName = keyof typeof SCREENS;
+
+/** The stale limit for a screen, given its current payload (null when there is none). */
+export function maxAgeFor(name: ScreenName, payload: { session?: unknown } | null): number {
+  const screen: ScreenConfig = SCREENS[name];
+  const session = payload?.session;
+  if (typeof session === "string" && screen.maxAgeBySession && Object.hasOwn(screen.maxAgeBySession, session)) {
+    return screen.maxAgeBySession[session]!;
+  }
+  return screen.maxAgeSeconds;
+}
 
 export function isSourceName(name: string): name is SourceName {
   return Object.hasOwn(SOURCES, name);
