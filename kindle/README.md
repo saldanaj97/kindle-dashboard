@@ -17,7 +17,7 @@ It makes no other network calls and triggers nothing. The token is passed to cur
 1. Connect the Kindle over USB and copy this folder to `/mnt/us/dashboard`.
 2. `cp dashboard.conf.example dashboard.conf`
 3. Put the service token and your host in `dashboard.conf`.
-4. `chmod 600 dashboard.conf`
+4. Treat `dashboard.conf` as readable by anyone who plugs the Kindle into a computer: `/mnt/us` is a FAT volume shared over USB, so `chmod` does not protect it. If the Kindle is lost, revoke the service token in Zero Trust.
 
 `dashboard.conf` is gitignored. Never commit it.
 
@@ -35,7 +35,7 @@ In the background (untested):
 nohup sh dashboard.sh >/dev/null 2>&1 &
 ```
 
-A KUAL menu entry that starts the script is the other option. Logs go to `$CACHE_DIR/dashboard.log`.
+A scriptlet that starts the script is the other option (KUAL is obsolete on current jailbreaks). Logs go to `$CACHE_DIR/dashboard.log`. Only one copy runs at a time; a second start exits with "already running". `--once` exits 1 when the fetch fails.
 
 `DASHBOARD_CONF=/path/to/file` points at a different config file.
 
@@ -49,7 +49,7 @@ The fetch still runs (so point `BASE_URL` at something safe); `eips` and `lipc-s
 
 ## Config
 
-See `dashboard.conf.example`. Required: `BASE_URL`, `SCREEN`, `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET`. Optional: `REFRESH_SECONDS`, `CACHE_DIR`, `CA_BUNDLE` (adds `curl --cacert`), `PREVENT_SCREENSAVER=1` (calls `lipc-set-prop com.lab126.powerd preventScreenSaver 1`; untested).
+See `dashboard.conf.example`. Required: `BASE_URL` (must be `https://`), `SCREEN`, `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET`. Optional: `REFRESH_SECONDS` (at least 60; default 600), `CACHE_DIR`, `CA_BUNDLE` (adds `curl --cacert`), `PREVENT_SCREENSAVER=1` (calls `lipc-set-prop com.lab126.powerd preventScreenSaver 1`; untested).
 
 ## Device results
 

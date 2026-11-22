@@ -2,7 +2,7 @@
 
 Turns a jailbroken Kindle into an e-ink dashboard. Producers in the cloud push data to a small backend, the backend draws each screen as a PNG, and the Kindle only downloads and shows images.
 
-Status: backend and first two screens run locally with made-up data. Not deployed. The Kindle client is untested on the device.
+Status: backend and first two screens run locally with made-up data. Not deployed. The Kindle client is partly tested on a jailbroken Kindle (see `kindle/README.md`).
 
 ## How it fits together
 
@@ -70,9 +70,10 @@ The Worker needs the **Workers Paid plan** (the owner has it). Each screen rende
 
 1. Create the KV namespace: `cd worker && npx wrangler kv namespace create DASHBOARD_KV`, then add the printed `"id"` to the `kv_namespaces` entry in `worker/wrangler.jsonc`.
 2. Set one ingest secret per producer, each a fresh random value (`openssl rand -base64 32`): `npx wrangler secret put INGEST_SECRET_TRADING` and `npx wrangler secret put INGEST_SECRET_SUMMARY`. Give each producer only its own secret.
-3. Add a custom domain route to `worker/wrangler.jsonc` (for example `"routes": [{ "pattern": "dashboard.example.com", "custom_domain": true }]`) and run `npx wrangler deploy`. `workers_dev` and `preview_urls` stay `false`, so the screens have no URL that skips Access.
-4. In Zero Trust, create an Access service token for the Kindle, then a self-hosted Access application for `<domain>/screen` with one policy: action **Service Auth**, include that service token. Leave `/ingest` outside the application; the producer secrets protect it.
-5. Put the service token's Client ID and Secret in `kindle/dashboard.conf` on the device (see [kindle/README.md](kindle/README.md)).
+3. **Before deploying**, in Zero Trust, create an Access service token for the Kindle, then a self-hosted Access application for `<domain>/screen/*` with one policy: action **Service Auth**, include that service token. Leave `/ingest` outside the application; the producer secrets protect it. The Worker itself does not check Access, so Access must be in place before the screens go live.
+4. Add a custom domain route to `worker/wrangler.jsonc` (for example `"routes": [{ "pattern": "dashboard.example.com", "custom_domain": true }]`) and run `npx wrangler deploy`. `workers_dev` and `preview_urls` stay `false`, so the screens have no URL that skips Access.
+5. Check Access before any producer pushes real data: `curl -i https://<domain>/screen/trade-plans.png` without the token must return a redirect or 403, not a PNG. With the two `CF-Access-Client-*` headers it must return the PNG.
+6. Put the service token's Client ID and Secret in `kindle/dashboard.conf` on the device (see [kindle/README.md](kindle/README.md)).
 
 ## Planned screens
 

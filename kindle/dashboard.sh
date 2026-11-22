@@ -46,12 +46,33 @@ fi
 case "$REFRESH_SECONDS" in
   ''|*[!0-9]*) echo "dashboard: REFRESH_SECONDS must be a whole number" >&2; exit 1 ;;
 esac
+if [ "$REFRESH_SECONDS" -lt 60 ]; then
+  echo "dashboard: REFRESH_SECONDS must be at least 60" >&2
+  exit 1
+fi
+# The service token travels in headers, so never send it over plain HTTP.
+case "$BASE_URL" in
+  https://*) ;;
+  *) echo "dashboard: BASE_URL must start with https://" >&2; exit 1 ;;
+esac
 
 mkdir -p "$CACHE_DIR" || { echo "dashboard: cannot create $CACHE_DIR" >&2; exit 1; }
 LAST="$CACHE_DIR/last.png"
 TMP="$CACHE_DIR/fetch.tmp"
 LOG="$CACHE_DIR/dashboard.log"
 URL="${BASE_URL%/}/screen/$SCREEN.png"
+
+# One copy at a time: two loops would race on fetch.tmp. The PID file lives in
+# /tmp (cleared on reboot) and is ignored when its process is gone, so a crash
+# or power loss never blocks the next start.
+PIDFILE=/tmp/kindle-dashboard.pid
+if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE" 2>/dev/null)" 2>/dev/null; then
+  echo "dashboard: already running (pid $(cat "$PIDFILE"))" >&2
+  exit 1
+fi
+echo $$ > "$PIDFILE"
+trap 'rm -f "$PIDFILE"' EXIT
+trap 'exit 130' INT TERM
 
 log() {
   line="$(date '+%Y-%m-%d %H:%M:%S') $*"
@@ -106,9 +127,9 @@ fetch() {
 
 show() {
   if [ -s "$LAST" ]; then
-    run eips -g "$LAST"
+    run eips -g "$LAST" || log "display failed: eips -g exited $?"
   else
-    run eips 0 0 "dashboard: no image yet"
+    run eips 0 0 "dashboard: no image yet" || log "display failed: eips exited $?"
   fi
 }
 
@@ -123,15 +144,18 @@ fi
 
 while :; do
   if fetch; then
+    ok=0
     # Full-screen clear first, only when there is a new image, to limit ghosting.
     # Skipped when the fetch failed so the last good image stays untouched.
     run eips -c
-    log "ok: updated $LAST"
     show
+    log "ok: updated $LAST"
   else
+    ok=1
     # Keep the last good image. Only draw when nothing is on screen yet.
     [ -s "$LAST" ] || show
   fi
-  [ "$ONCE" = 1 ] && break
+  # --once exits with the fetch result, so callers can tell a failed fetch.
+  [ "$ONCE" = 1 ] && exit "$ok"
   sleep "$REFRESH_SECONDS"
 done
