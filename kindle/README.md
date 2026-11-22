@@ -42,6 +42,33 @@ A scriptlet that starts the script is the other option (KUAL is obsolete on curr
 
 `DASHBOARD_CONF=/path/to/file` points at a different config file.
 
+## Kiosk mode (dashboard only)
+
+`kiosk.sh` turns the Kindle into a dashboard-only display: it stops the Kindle interface (home screen, books, screensaver) and runs `dashboard.sh` in its place. `upstart/kindle-dashboard.conf` starts it at boot.
+
+Install over SSH as root:
+
+1. Copy `kiosk.sh` to `/var/local/dashboard/kiosk.sh`.
+2. `mount -o remount,rw /`, write `upstart/kindle-dashboard.conf` to `/etc/upstart/kindle-dashboard.conf`, then `mount -o remount,ro /`.
+3. Turn it on: `touch /mnt/us/KINDLE_DASHBOARD_KIOSK`, then reboot.
+
+Turn it off: `rm /mnt/us/KINDLE_DASHBOARD_KIOSK && reboot`. To remove it completely, also delete `/etc/upstart/kindle-dashboard.conf` (remount `/` read-write first).
+
+How it behaves at boot:
+
+- It waits for the Kindle's storage (`/mnt/us`) to be mounted on the Kindle. If a computer has it mounted as a drive, the script leaves the USB mode and the interface alone, and you get the normal Kindle.
+- It then switches USB to network mode and starts dropbear, as Jobman's "Enable USB SSH" does, so SSH over USB works without the Jobman app.
+- It stops the interface only if the switch file exists and, when a computer is attached, USB SSH is up. Otherwise the normal Kindle stays, so the device is always recoverable.
+- Stopping `x` and `lab126_gui` takes the whole interface down; `wifid`, `cmd`, `powerd`, `volumd` and `dbus` keep running, so Wi-Fi works.
+- Logs go to `/var/local/dashboard/kiosk.log`.
+
+Lessons from the device:
+
+- **Never switch USB to network mode while a computer has the drive mounted.** An earlier version did, which is an unclean removal: the storage was left dirty, the Kindle refused to mount it on later boots and showed "Critical device error E3", and Jobman stopped opening. `dosfsck -n` found only the dirty flag; a boot without the Mac grabbing the drive mounted it again.
+- USB SSH set from the Jobman app does not survive a reboot.
+- With a computer attached at boot, the Kindle exports its storage as a drive, so `/mnt/us` (and any file on it) is invisible on the Kindle until USB leaves drive mode. The Kindle's own `/mnt/us/DONT_START_FRAMEWORK` switch fails for the same reason, so the kiosk uses its own logic.
+- Jobman's boot recovery window did not appear on this device; don't count on it as an escape.
+
 ## Dry run on a Mac
 
 ```sh
