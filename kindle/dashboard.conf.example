@@ -18,3 +18,7 @@ CACHE_DIR="/var/local/dashboard"
 CA_BUNDLE=""
 # Optional, untested on device: 1 keeps the screensaver from replacing the image.
 PREVENT_SCREENSAVER=0
+# awake (default): plain sleep between refreshes; the Kindle stays on and needs
+# a charger. suspend: deep sleep between refreshes (Wi-Fi off, RTC wake-up), so
+# it can run on battery. Never suspends while a computer is on the USB cable.
+SLEEP_MODE=awake

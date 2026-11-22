@@ -1,4 +1,4 @@
-**Partly tested on the device.** One full cycle works on the real Kindle against the deployed Worker behind Cloudflare Access. The background loop, sleep and Wi-Fi recovery are not tested yet.
+**Tested on the device.** The loop runs on the real Kindle against the deployed Worker behind Cloudflare Access, in kiosk mode with deep sleep between refreshes. Battery life over days is not measured yet.
 
 # Kindle client
 
@@ -42,6 +42,36 @@ A scriptlet that starts the script is the other option (KUAL is obsolete on curr
 
 `DASHBOARD_CONF=/path/to/file` points at a different config file.
 
+## Kiosk mode (dashboard only)
+
+`kiosk.sh` turns the Kindle into a dashboard-only display: it stops the Kindle interface (home screen, books, screensaver) and runs `dashboard.sh` in its place. `upstart/kindle-dashboard.conf` starts it at boot.
+
+Install over SSH as root:
+
+1. Copy `kiosk.sh` to `/var/local/dashboard/kiosk.sh`.
+2. `mount -o remount,rw /`, write `upstart/kindle-dashboard.conf` to `/etc/upstart/kindle-dashboard.conf`, then `mount -o remount,ro /`.
+3. Turn it on: `touch /mnt/us/KINDLE_DASHBOARD_KIOSK`, then reboot.
+
+Turn it off: `rm /mnt/us/KINDLE_DASHBOARD_KIOSK && reboot`. To remove it completely, also delete `/etc/upstart/kindle-dashboard.conf` (remount `/` read-write first).
+
+How it behaves at boot:
+
+- With the switch file missing it changes nothing, not even the USB mode, so the Kindle and its USB drive mode behave as stock.
+- It waits for the Kindle's storage (`/mnt/us`) to be mounted on the Kindle. While a computer has it mounted as a drive, the script leaves the USB mode and the interface alone, and you get the normal Kindle ("USB drive mode"). Once you eject the drive or unplug the cable, the kiosk starts.
+- It then switches USB to network mode and starts dropbear, as Jobman's "Enable USB SSH" does, so SSH over USB works without the Jobman app.
+- It stops the interface only if `dashboard.sh --check` passes and, when a computer is attached, USB SSH is up. Otherwise the normal Kindle stays, so the device is always recoverable.
+- If the dashboard loop ever exits, it starts the Kindle interface again instead of leaving a frozen screen.
+- dropbear runs in its own session, so SSH survives the kiosk job stopping.
+- Stopping `x` and `lab126_gui` takes the whole interface down; `wifid`, `cmd`, `powerd`, `volumd` and `dbus` keep running, so Wi-Fi works.
+- Logs go to `/var/local/dashboard/kiosk.log`.
+
+Lessons from the device:
+
+- **Never switch USB to network mode while a computer has the drive mounted.** An earlier version did, which is an unclean removal: the storage was left dirty, the Kindle refused to mount it on later boots and showed "Critical device error E3", and Jobman stopped opening. `dosfsck -n` found only the dirty flag; a boot without the Mac grabbing the drive mounted it again.
+- USB SSH set from the Jobman app does not survive a reboot.
+- With a computer attached at boot, the Kindle exports its storage as a drive, so `/mnt/us` (and any file on it) is invisible on the Kindle until USB leaves drive mode. The Kindle's own `/mnt/us/DONT_START_FRAMEWORK` switch fails for the same reason, so the kiosk uses its own logic.
+- Jobman's boot recovery window did not appear on this device; don't count on it as an escape.
+
 ## Dry run on a Mac
 
 ```sh
@@ -52,7 +82,15 @@ The fetch still runs (so point `BASE_URL` at something safe); `eips` and `lipc-s
 
 ## Config
 
-See `dashboard.conf.example`. Required: `BASE_URL` (must be `https://`), `SCREEN`, `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET`. Optional: `REFRESH_SECONDS` (at least 60; default 600), `CACHE_DIR`, `CA_BUNDLE` (adds `curl --cacert`), `PREVENT_SCREENSAVER=1` (calls `lipc-set-prop com.lab126.powerd preventScreenSaver 1`; untested).
+See `dashboard.conf.example`. Required: `BASE_URL` (must be `https://`), `SCREEN`, `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET`. Optional: `REFRESH_SECONDS` (at least 60; default 600), `CACHE_DIR`, `CA_BUNDLE` (adds `curl --cacert`), `PREVENT_SCREENSAVER=1` (calls `lipc-set-prop com.lab126.powerd preventScreenSaver 1`; kiosk mode sets it itself), `SLEEP_MODE` (`awake`, the default, or `suspend`; see below).
+
+## Deep sleep (`SLEEP_MODE=suspend`)
+
+Between refreshes the loop turns Wi-Fi off, arms the RTC alarm (`/sys/class/rtc/rtc0/wakealarm`), suspends to RAM (`echo mem > /sys/power/state`), and turns Wi-Fi back on after waking. E-ink keeps the image with no power, so the Kindle can run on battery. Each successful refresh logs the battery level.
+
+- It never suspends while a computer is on the USB cable (`/sys/class/udc/*/state` is `configured`), so plugging one in brings SSH back within one refresh.
+- The kernel refuses to suspend while Wi-Fi is connected or the display is still updating (wake locks `WLAN`, `hwtcon_wakelock`, `cmdq_wakelock`); hence Wi-Fi off and a 5 s pause first. If it still refuses after 5 tries, that cycle sleeps awake and logs `suspend refused`.
+- Use it with kiosk mode: with the Kindle interface running, its own wake locks keep the device from suspending.
 
 ## Device results
 
@@ -64,10 +102,10 @@ Verified on the real Kindle (KT5, firmware 5.19.2.0.1, jailbroken):
 - busybox has `head -c` and `od`, so the PNG signature check works.
 - `eips -g` shows the Worker's 8-bit grayscale PNG crisply.
 - Installed in `/var/local/dashboard`, `sh dashboard.sh --once` fetches `kindle.juansaldana.dev/screen/trade-plans.png` through Access with the service token and displays it (exit 0). With no Wi-Fi it logs "Could not resolve host", shows "no image yet" and exits 1.
+- Deep sleep (MT8110 "Bellatrix", firmware 5.19.2.0.1): `echo mem > /sys/power/state` with the rtc0 wake alarm suspends on the first try once Wi-Fi is off and the display idle; it woke after 59 s of a 60 s alarm and Wi-Fi reconnected in 5 s. In the loop, a 2-minute refresh slept and redrew on time. With Wi-Fi on, the kernel refuses with "Device or resource busy".
 - `/var/local` is ext3 (`/dev/mmcblk0p9`), survives reboots, and `chmod 600` holds there. `/mnt/us` is a FUSE view of a vfat image; the script refuses a config under it.
 
 ## Still untested
 
-- Screensaver and suspend: does the image survive, and does `PREVENT_SCREENSAVER` help? Power saving (RTC wake, suspend between fetches) is a follow-up; plain `sleep` keeps the device awake and drains the battery.
-- Does Wi-Fi reconnect after sleep, and does a failed fetch while offline recover on the next cycle?
-- The background loop (`nohup` or a scriptlet) over hours, including what the screen shows across refreshes.
+- Battery life with `SLEEP_MODE=suspend` over a day or more (only short runs so far).
+- A failed fetch while offline recovering on the next cycle.
