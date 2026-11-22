@@ -79,7 +79,15 @@ The fetch still runs (so point `BASE_URL` at something safe); `eips` and `lipc-s
 
 ## Config
 
-See `dashboard.conf.example`. Required: `BASE_URL` (must be `https://`), `SCREEN`, `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET`. Optional: `REFRESH_SECONDS` (at least 60; default 600), `CACHE_DIR`, `CA_BUNDLE` (adds `curl --cacert`), `PREVENT_SCREENSAVER=1` (calls `lipc-set-prop com.lab126.powerd preventScreenSaver 1`; untested).
+See `dashboard.conf.example`. Required: `BASE_URL` (must be `https://`), `SCREEN`, `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET`. Optional: `REFRESH_SECONDS` (at least 60; default 600), `CACHE_DIR`, `CA_BUNDLE` (adds `curl --cacert`), `PREVENT_SCREENSAVER=1` (calls `lipc-set-prop com.lab126.powerd preventScreenSaver 1`; kiosk mode sets it itself), `SLEEP_MODE` (`awake`, the default, or `suspend`; see below).
+
+## Deep sleep (`SLEEP_MODE=suspend`)
+
+Between refreshes the loop turns Wi-Fi off, arms the RTC alarm (`/sys/class/rtc/rtc0/wakealarm`), suspends to RAM (`echo mem > /sys/power/state`), and turns Wi-Fi back on after waking. E-ink keeps the image with no power, so the Kindle can run on battery. Each refresh logs the battery level.
+
+- It never suspends while a computer is on the USB cable (`/sys/class/udc/*/state` is `configured`), so plugging one in brings SSH back within one refresh.
+- The kernel refuses to suspend while Wi-Fi is connected or the display is still updating (wake locks `WLAN`, `hwtcon_wakelock`, `cmdq_wakelock`); hence Wi-Fi off and a 5 s pause first. If it still refuses after 5 tries, that cycle sleeps awake and logs `suspend refused`.
+- Use it with kiosk mode: with the Kindle interface running, its own wake locks keep the device from suspending.
 
 ## Device results
 
@@ -91,10 +99,10 @@ Verified on the real Kindle (KT5, firmware 5.19.2.0.1, jailbroken):
 - busybox has `head -c` and `od`, so the PNG signature check works.
 - `eips -g` shows the Worker's 8-bit grayscale PNG crisply.
 - Installed in `/var/local/dashboard`, `sh dashboard.sh --once` fetches `kindle.juansaldana.dev/screen/trade-plans.png` through Access with the service token and displays it (exit 0). With no Wi-Fi it logs "Could not resolve host", shows "no image yet" and exits 1.
+- Deep sleep (MT8110 "Bellatrix", firmware 5.19.2.0.1): `echo mem > /sys/power/state` with the rtc0 wake alarm suspends on the first try once Wi-Fi is off and the display idle; it woke after 59 s of a 60 s alarm and Wi-Fi reconnected in 5 s. In the loop, a 2-minute refresh slept and redrew on time. With Wi-Fi on, the kernel refuses with "Device or resource busy".
 - `/var/local` is ext3 (`/dev/mmcblk0p9`), survives reboots, and `chmod 600` holds there. `/mnt/us` is a FUSE view of a vfat image; the script refuses a config under it.
 
 ## Still untested
 
-- Screensaver and suspend: does the image survive, and does `PREVENT_SCREENSAVER` help? Power saving (RTC wake, suspend between fetches) is a follow-up; plain `sleep` keeps the device awake and drains the battery.
-- Does Wi-Fi reconnect after sleep, and does a failed fetch while offline recover on the next cycle?
-- The background loop (`nohup` or a scriptlet) over hours, including what the screen shows across refreshes.
+- Battery life with `SLEEP_MODE=suspend` over a day or more (only short runs so far).
+- A failed fetch while offline recovering on the next cycle.
