@@ -48,7 +48,7 @@ function startDev() {
   const persist = join(outDir, ".wrangler-preview-state");
   const child = spawn(
     "npx",
-    ["wrangler", "dev", "--port", "0", "--ip", "127.0.0.1", "--persist-to", persist, "--show-interactive-dev-session=false"],
+    ["wrangler", "dev", "--port", "0", "--ip", "127.0.0.1", "--var", "ACCESS_DEV_BYPASS:1", "--persist-to", persist, "--show-interactive-dev-session=false"],
     { cwd: workerDir, stdio: ["ignore", "pipe", "pipe"], detached: true },
   );
   return new Promise((resolveReady, reject) => {

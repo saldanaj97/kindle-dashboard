@@ -9,7 +9,7 @@ This file is the single source of instructions for every agent. `CLAUDE.md` impo
 1. **This repo is public.** Never commit secrets, tokens, account numbers, positions, P&L, or other personal data. Local secrets go in `.dev.vars` or `.env` (both gitignored); deployed secrets go in Worker secrets. Sample data in tests and fixtures must be made up.
 2. **The Kindle is a display, nothing more.** No endpoint the Kindle can reach may trigger an action: no orders, no writes to outside services, no changes to producer state.
 3. **The backend never holds trading credentials.** Producers fetch their own data and push it here. A producer that needs a broker or account token keeps that token in its own repo and runtime.
-4. **Every request is authenticated.** Producers send a per-producer ingest secret. Screens sit behind Cloudflare Access and the Kindle uses a service token.
+4. **Every request is authenticated.** Producers send a per-producer ingest secret. Screens sit behind Cloudflare Access, the Worker verifies the Access JWT itself (fail closed), and the Kindle uses a service token.
 5. **Every screen shows when its data is from.** Print the data timestamp, and show a stale banner when the data is older than the screen's refresh interval allows, counting only time the market was open. Show a closed market as a separate, quieter notice, not as stale, unless the screen's own label already says the session (pre-market / end of day).
 6. **Track work in GitHub Issues, not Linear.** This project files no Linear issues. Issues are public like the repo, so anything private goes in the owner's Notion, with only a link in the issue.
 

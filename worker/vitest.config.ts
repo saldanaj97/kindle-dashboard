@@ -13,7 +13,9 @@ export default defineConfig({
   plugins: [
     cloudflareTest({
       wrangler: { configPath: "./wrangler.jsonc" },
-      miniflare: { bindings: TEST_SECRETS },
+      // ACCESS_DEV_BYPASS skips the Access JWT check, and only for local
+      // hostnames (see src/access.ts). Production never sets it.
+      miniflare: { bindings: { ...TEST_SECRETS, ACCESS_DEV_BYPASS: "1" } },
     }),
   ],
 });

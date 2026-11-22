@@ -4,6 +4,7 @@ import { readBodyLimited } from "./body";
 import { putLatest } from "./store";
 import { validatePayload } from "./validate";
 import { renderScreen } from "./screens";
+import { checkAccess } from "./access";
 
 // Routes:
 //   POST /ingest/<source>      producers push data; per-producer secret
@@ -49,6 +50,14 @@ async function handleIngest(request: Request, env: Env, source: string): Promise
 async function handleScreen(request: Request, env: Env, name: string): Promise<Response> {
   if (request.method !== "GET" && request.method !== "HEAD") {
     return json(405, { error: "method not allowed" }, { allow: "GET, HEAD" });
+  }
+  // Verify Access's JWT before anything else, so even unknown screen names
+  // can't be probed without it.
+  const access = await checkAccess(request, env);
+  if (!access.ok) {
+    // Generic body: callers learn nothing about the Worker's config. The reason goes to logs.
+    console.warn(`screen: 403 (${access.reason})`);
+    return json(403, { error: "forbidden" });
   }
   if (!isScreenName(name)) return json(404, { error: "unknown screen" });
   const { png, asOf, freshness } = await renderScreen(name, env, new Date());
