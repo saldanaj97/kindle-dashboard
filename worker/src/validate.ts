@@ -48,10 +48,32 @@ function semanticErrors(source: SourceName, payload: unknown): ValidationResult[
   return errors.slice(0, 20);
 }
 
+// as_of before this is a producer bug, and New York time-zone math is undefined before 1883.
+const EARLIEST_AS_OF_MS = Date.UTC(2000, 0, 1);
+
+/**
+ * Checks for every source. JSON.parse turns huge literals like 1e999 into
+ * Infinity, which the schema accepts but KV stores as null.
+ */
+function genericErrors(payload: unknown): ValidationResult["errors"] {
+  const errors: ValidationResult["errors"] = [];
+  const walk = (v: unknown, path: string) => {
+    if (typeof v === "number" && !Number.isFinite(v)) errors.push({ path, message: "number must be finite" });
+    else if (Array.isArray(v)) v.forEach((x, i) => walk(x, `${path}/${i}`));
+    else if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) walk(x, `${path}/${k}`);
+  };
+  walk(payload, "#");
+  const asOf = (payload as { as_of?: unknown }).as_of;
+  if (typeof asOf === "string" && Date.parse(asOf) < EARLIEST_AS_OF_MS) {
+    errors.push({ path: "#/as_of", message: "as_of must be on or after 2000-01-01" });
+  }
+  return errors;
+}
+
 export function validatePayload(source: SourceName, payload: unknown): ValidationResult {
   const result = validatorFor(source).validate(payload);
   if (result.valid) {
-    const errors = semanticErrors(source, payload);
+    const errors = [...genericErrors(payload), ...semanticErrors(source, payload)].slice(0, 20);
     return { valid: errors.length === 0, errors };
   }
   return {

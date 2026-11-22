@@ -26,7 +26,7 @@ curl -X POST "$BASE_URL/ingest/trade-plans" \
   --data @contract/examples/trade-plans.json
 ```
 
-Responses: `204` stored, `400` not JSON, `401` missing or wrong secret, `404` unknown source, `413` body over 64 KB (counted while reading, with or without `Content-Length`), `415` not `application/json`, `422` fails the schema (the body lists the errors).
+Responses: `204` stored, `400` not JSON, `401` missing or wrong secret, `404` unknown source, `405` not a POST, `413` body over 64 KB (counted while reading, with or without `Content-Length`), `415` not `application/json`, `422` fails the schema or the extra checks: prices in order for the side, numbers finite, `as_of` on or after 2000-01-01 (the body lists the errors).
 
 ## Examples
 

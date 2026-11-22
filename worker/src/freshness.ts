@@ -130,8 +130,16 @@ export function evaluateFreshness({ asOf, now, maxAgeSeconds, marketStatus }: Fr
       reasons.push({ kind: "bad-time" });
     } else {
       ageSeconds = Math.round((now.getTime() - t) / 1000);
-      const marketAgeSeconds = marketSecondsBetween(new Date(t), now, maxAgeSeconds);
-      if (marketAgeSeconds > maxAgeSeconds) reasons.push({ kind: "too-old", marketAgeSeconds, maxAgeSeconds });
+      let marketAgeSeconds: number | null = null;
+      try {
+        marketAgeSeconds = marketSecondsBetween(new Date(t), now, maxAgeSeconds);
+      } catch {
+        // Times New York time-zone math can't place (before 1883) count as unreadable.
+        reasons.push({ kind: "bad-time" });
+      }
+      if (marketAgeSeconds !== null && marketAgeSeconds > maxAgeSeconds) {
+        reasons.push({ kind: "too-old", marketAgeSeconds, maxAgeSeconds });
+      }
       if (-ageSeconds > CLOCK_SKEW_SECONDS) reasons.push({ kind: "future", aheadSeconds: -ageSeconds });
     }
   }

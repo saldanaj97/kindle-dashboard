@@ -24,7 +24,7 @@ async function handleIngest(request: Request, env: Env, source: string): Promise
   }
 
   const contentType = request.headers.get("content-type") ?? "";
-  if (!/^application\/json\b/i.test(contentType)) return json(415, { error: "content-type must be application/json" });
+  if (!/^application\/json\s*(;|$)/i.test(contentType)) return json(415, { error: "content-type must be application/json" });
 
   const declared = Number(request.headers.get("content-length") ?? "0");
   if (declared > MAX_INGEST_BYTES) return json(413, { error: "payload too large" });
