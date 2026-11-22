@@ -77,7 +77,7 @@ The Worker needs the **Workers Paid plan** (the owner has it). Each screen rende
    ```
    Later deploys are plain `npx wrangler deploy`; the secrets stay on the Worker. `workers_dev` and `preview_urls` stay `false`, so the screens have no URL that skips Access.
 5. **Check Access before any producer pushes real data:** `curl -i https://kindle.juansaldana.dev/screen/trade-plans.png` without the token must return a redirect or 403, not a PNG. With the two `CF-Access-Client-*` headers it must return the PNG.
-6. Put the service token's Client ID and Secret in `kindle/dashboard.conf` on the device (see [kindle/README.md](kindle/README.md)).
+6. Put the service token's Client ID and Secret in `/var/local/dashboard/dashboard.conf` on the device, never on its USB drive (see [kindle/README.md](kindle/README.md)).
 
 ## Planned screens
 

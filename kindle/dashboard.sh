@@ -7,7 +7,8 @@
 #   --dry-run   print the eips/lipc commands instead of running them
 #               (same as DRY_RUN=1). The fetch still runs.
 # Env: DASHBOARD_CONF overrides the config path (default: dashboard.conf next
-#      to this script).
+#      to this script). Install under /var/local/dashboard: /mnt/us is the
+#      USB drive, and the script refuses a config there.
 
 ONCE=0
 DRY_RUN=${DRY_RUN:-0}
@@ -15,7 +16,7 @@ for arg in "$@"; do
   case "$arg" in
     --once) ONCE=1 ;;
     --dry-run) DRY_RUN=1 ;;
-    -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
     *) echo "unknown argument: $arg" >&2; exit 2 ;;
   esac
 done
@@ -26,11 +27,18 @@ if [ ! -f "$CONF" ]; then
   echo "dashboard: config not found: $CONF" >&2
   exit 1
 fi
+# /mnt/us is the drive a computer sees over USB, where permissions do nothing:
+# a token there can be copied by anyone who plugs the Kindle in.
+case "$(cd "$(dirname "$CONF")" && pwd)/" in
+  /mnt/us/*|/mnt/base-us/*)
+    echo "dashboard: refusing a config on the USB drive ($CONF); move it to /var/local/dashboard" >&2
+    exit 1 ;;
+esac
 # shellcheck disable=SC1090
 . "$CONF"
 
 REFRESH_SECONDS=${REFRESH_SECONDS:-600}
-CACHE_DIR=${CACHE_DIR:-/mnt/us/dashboard}
+CACHE_DIR=${CACHE_DIR:-/var/local/dashboard}
 PREVENT_SCREENSAVER=${PREVENT_SCREENSAVER:-0}
 CA_BUNDLE=${CA_BUNDLE:-}
 
