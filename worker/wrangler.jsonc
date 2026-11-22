@@ -9,6 +9,9 @@
   "preview_urls": false,
   // Custom domain. Cloudflare Access guards kindle.juansaldana.dev/screen/*.
   "routes": [{ "pattern": "kindle.juansaldana.dev", "custom_domain": true }],
+  // Local `wrangler dev` otherwise presents requests as the route's hostname,
+  // and the Access dev bypass only applies to local hostnames.
+  "dev": { "host": "localhost" },
   "rules": [
     { "type": "Data", "globs": ["**/*.woff"], "fallthrough": true }
   ],
@@ -23,6 +26,11 @@
     "required": ["INGEST_SECRET_TRADING", "INGEST_SECRET_SUMMARY"]
   },
   "vars": {
-    "DISPLAY_TZ": "America/New_York"
+    "DISPLAY_TZ": "America/New_York",
+    // Cloudflare Access: the Worker verifies the Cf-Access-Jwt-Assertion JWT on
+    // /screen/* and answers 403 when these are empty or the JWT is invalid.
+    // Neither value is a secret.
+    "ACCESS_TEAM_DOMAIN": "https://saldana-digital-media.cloudflareaccess.com",
+    "ACCESS_AUD": "2bbd833aa6409115ea81f67f50f29c8d83f965a9c634c247dcadd022add5b2c4"
   }
 }

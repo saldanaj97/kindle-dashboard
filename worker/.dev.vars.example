@@ -3,3 +3,6 @@
 # `wrangler secret put`, never committed.
 INGEST_SECRET_TRADING="local-dev-trading-secret"
 INGEST_SECRET_SUMMARY="local-dev-summary-secret"
+# The Access JWT check on /screen/* is skipped locally by `npm run dev` and
+# the preview script, which pass --var ACCESS_DEV_BYPASS:1 (wrangler loads only
+# the secrets.required names from this file). It only works on local hostnames.
