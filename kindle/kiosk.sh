@@ -43,11 +43,13 @@ log "boot: kiosk.sh started"
 #    Kindle's storage mounted as a drive, /mnt/us is not mounted here, and
 #    switching USB to network mode then is an unclean removal: the storage is
 #    left dirty and the Kindle refuses to mount it on the next boot
-#    ("Critical device error E3"). So wait for /mnt/us to be mounted locally,
-#    and if it never is, leave the Kindle and its USB mode alone.
-if ! wait_for 120 userstore_mounted; then
-  log "userstore not mounted here after 120 s (a computer may have it as a drive); leaving USB and the interface alone"
-  exit 0
+#    ("Critical device error E3"). So wait, however long it takes, for /mnt/us
+#    to be mounted locally: the kiosk starts once the computer ejects the
+#    drive or the cable is unplugged. Until then the normal Kindle stays.
+if ! userstore_mounted; then
+  log "waiting for /mnt/us (a computer may have it as a drive); the kiosk starts once it is ejected or unplugged"
+  until userstore_mounted; do sleep 5; done
+  log "userstore mounted"
 fi
 
 # 2. USB SSH, the way Jobman's "Enable USB SSH" does it. Safe now: the

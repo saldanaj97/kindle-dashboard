@@ -56,7 +56,7 @@ Turn it off: `rm /mnt/us/KINDLE_DASHBOARD_KIOSK && reboot`. To remove it complet
 
 How it behaves at boot:
 
-- It waits for the Kindle's storage (`/mnt/us`) to be mounted on the Kindle. If a computer has it mounted as a drive, the script leaves the USB mode and the interface alone, and you get the normal Kindle.
+- It waits for the Kindle's storage (`/mnt/us`) to be mounted on the Kindle. While a computer has it mounted as a drive, the script leaves the USB mode and the interface alone, and you get the normal Kindle ("USB drive mode"). Once you eject the drive or unplug the cable, the kiosk starts.
 - It then switches USB to network mode and starts dropbear, as Jobman's "Enable USB SSH" does, so SSH over USB works without the Jobman app.
 - It stops the interface only if the switch file exists and, when a computer is attached, USB SSH is up. Otherwise the normal Kindle stays, so the device is always recoverable.
 - Stopping `x` and `lab126_gui` takes the whole interface down; `wifid`, `cmd`, `powerd`, `volumd` and `dbus` keep running, so Wi-Fi works.
