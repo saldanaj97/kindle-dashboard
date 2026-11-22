@@ -1,4 +1,4 @@
-**Partly tested on the device.** The fetch and display steps work on the real Kindle; the full loop against a deployed Worker, sleep and Wi-Fi recovery are not tested yet.
+**Partly tested on the device.** One full cycle works on the real Kindle against the deployed Worker behind Cloudflare Access. The background loop, sleep and Wi-Fi recovery are not tested yet.
 
 # Kindle client
 
@@ -12,12 +12,15 @@
 
 It makes no other network calls and triggers nothing. The token is passed to curl through stdin, so it is not in the process list, and it is never logged.
 
-## Install (untested)
+## Install
 
-1. Connect the Kindle over USB and copy this folder to `/mnt/us/dashboard`.
-2. `cp dashboard.conf.example dashboard.conf`
-3. Put the service token and your host in `dashboard.conf`.
-4. Treat `dashboard.conf` as readable by anyone who plugs the Kindle into a computer: `/mnt/us` is a FAT volume shared over USB, so `chmod` does not protect it. If the Kindle is lost, revoke the service token in Zero Trust.
+Everything lives in `/var/local/dashboard`, on the Kindle's internal ext3 partition. It survives reboots, a computer can't see it over USB, and `chmod` works there. Don't use `/mnt/us`: that is the USB drive, where any computer the Kindle is plugged into can copy files and permissions do nothing. `dashboard.sh` refuses a config there, and the cached `last.png` shows whatever the screen shows, so it stays off the drive too.
+
+Over SSH as root:
+
+1. Copy `dashboard.sh` to `/var/local/dashboard/dashboard.sh`.
+2. Write `/var/local/dashboard/dashboard.conf` from `dashboard.conf.example` with your host and the service token, then `chmod 600` it. To send the token from 1Password, run the `ssh … 'cat > …'` inside `op-sa run … -- sh -c '…'`: `op run` replaces secret values in its own output with `<concealed by 1Password>`, so piping them out of it delivers that placeholder.
+3. If the Kindle is lost, revoke the service token in Zero Trust.
 
 `dashboard.conf` is gitignored. Never commit it.
 
@@ -60,9 +63,11 @@ Verified on the real Kindle (KT5, firmware 5.19.2.0.1, jailbroken):
 - `curl -K -` (config from stdin, which keeps the token out of the process list) works.
 - busybox has `head -c` and `od`, so the PNG signature check works.
 - `eips -g` shows the Worker's 8-bit grayscale PNG crisply.
+- Installed in `/var/local/dashboard`, `sh dashboard.sh --once` fetches `kindle.juansaldana.dev/screen/trade-plans.png` through Access with the service token and displays it (exit 0). With no Wi-Fi it logs "Could not resolve host", shows "no image yet" and exits 1.
+- `/var/local` is ext3 (`/dev/mmcblk0p9`), survives reboots, and `chmod 600` holds there. `/mnt/us` is a FUSE view of a vfat image; the script refuses a config under it.
 
 ## Still untested
 
 - Screensaver and suspend: does the image survive, and does `PREVENT_SCREENSAVER` help? Power saving (RTC wake, suspend between fetches) is a follow-up; plain `sleep` keeps the device awake and drains the battery.
 - Does Wi-Fi reconnect after sleep, and does a failed fetch while offline recover on the next cycle?
-- The full loop against a deployed Worker behind Cloudflare Access (background run, KUAL entry).
+- The background loop (`nohup` or a scriptlet) over hours, including what the screen shows across refreshes.

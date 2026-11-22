@@ -1,5 +1,7 @@
-# Copy to dashboard.conf and fill in. /mnt/us is FAT and shared over USB, so
-# file permissions do not protect this file; revoke the token if the Kindle is lost.
+# Copy to /var/local/dashboard/dashboard.conf, fill in, then chmod 600 it.
+# Never put it under /mnt/us: that is the USB drive, readable by any computer
+# the Kindle is plugged into (dashboard.sh refuses it). Revoke the token if the
+# Kindle is lost.
 # Read by dashboard.sh as a shell file. Do not commit the real one.
 
 BASE_URL="https://dashboard.example.com"
@@ -9,8 +11,9 @@ CF_ACCESS_CLIENT_SECRET="replace-me"
 
 # Seconds between fetches (default 600).
 REFRESH_SECONDS=600
-# Where the last good image and log live (default /mnt/us/dashboard).
-CACHE_DIR="/mnt/us/dashboard"
+# Where the last good image and log live (default /var/local/dashboard). Keep
+# it off /mnt/us too: the cached image shows whatever the screen shows.
+CACHE_DIR="/var/local/dashboard"
 # Optional: CA bundle for curl --cacert, if the Kindle's curl rejects the TLS cert.
 CA_BUNDLE=""
 # Optional, untested on device: 1 keeps the screensaver from replacing the image.
