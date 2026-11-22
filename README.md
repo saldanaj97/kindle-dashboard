@@ -2,7 +2,7 @@
 
 Turns a jailbroken Kindle into an e-ink dashboard. Producers in the cloud push data to a small backend, the backend draws each screen as a PNG, and the Kindle only downloads and shows images.
 
-Status: backend and first two screens run locally with made-up data. Not deployed. The Kindle client is partly tested on a jailbroken Kindle (see `kindle/README.md`).
+Status: backend and first two screens are deployed at `kindle.juansaldana.dev` behind Cloudflare Access. No producer pushes real data yet. The Kindle client is partly tested on a jailbroken Kindle (see `kindle/README.md`).
 
 ## How it fits together
 
@@ -64,15 +64,19 @@ Rendering: [Satori](https://github.com/vercel/satori) (through `@cf-wasm/satori`
 
 ## Deploying (owner)
 
-Not done yet. These steps change the Cloudflare account, so the owner runs them.
+Done once on 2026-11-22; kept here for rebuilding or rotating. These steps change the Cloudflare account, so the owner runs them.
 
 The Worker needs the **Workers Paid plan** (the owner has it). Each screen render is CPU-bound layout and rasterising: measured locally under `wrangler dev` at about 200 ms per trade-plans render and 330 ms per summary render with the largest payloads (about 100 ms with the examples). That is far over the Free plan's 10 ms CPU limit and well inside the Paid plan's default 30 s. `npx wrangler deploy --dry-run` (local build, no account change) measures the bundle at 3,362 KiB, 1,186 KiB gzipped, inside the Paid plan's 10 MB limit. At a 10-minute refresh that is about 4,300 renders a month.
 
-1. Create the KV namespace: `cd worker && npx wrangler kv namespace create DASHBOARD_KV`, then add the printed `"id"` to the `kv_namespaces` entry in `worker/wrangler.jsonc`.
-2. Set one ingest secret per producer, each a fresh random value (`openssl rand -base64 32`): `npx wrangler secret put INGEST_SECRET_TRADING` and `npx wrangler secret put INGEST_SECRET_SUMMARY`. Give each producer only its own secret.
-3. **Before deploying**, in Zero Trust, create an Access service token for the Kindle, then a self-hosted Access application for `<domain>/screen/*` with one policy: action **Service Auth**, include that service token. Leave `/ingest` outside the application; the producer secrets protect it. The Worker itself does not check Access, so Access must be in place before the screens go live.
-4. Add a custom domain route to `worker/wrangler.jsonc` (for example `"routes": [{ "pattern": "dashboard.example.com", "custom_domain": true }]`) and run `npx wrangler deploy`. `workers_dev` and `preview_urls` stay `false`, so the screens have no URL that skips Access.
-5. Check Access before any producer pushes real data: `curl -i https://<domain>/screen/trade-plans.png` without the token must return a redirect or 403, not a PNG. With the two `CF-Access-Client-*` headers it must return the PNG.
+1. **Access first.** The Worker does not check Access itself, so set this up before the screens go live. In Zero Trust, create a service token for the Kindle, then a self-hosted Access application for `kindle.juansaldana.dev` with path `screen/*` and one policy: action **Service Auth**, include that service token. Leave `/ingest` outside the application; the producer secrets protect it.
+2. **Secrets in 1Password.** Keep the service token (`CF_CLIENT_ID`, `CF_CLIENT_SECRET`) and one random ingest secret per producer (`INGEST_SECRET_TRADING`, `INGEST_SECRET_SUMMARY`) in the project's 1Password Environment. Agents read it through `op-sa` with a read-only service account.
+3. **KV namespace:** `cd worker && npx wrangler kv namespace create DASHBOARD_KV`, then put the printed `"id"` in the `kv_namespaces` entry in `worker/wrangler.jsonc`.
+4. **First deploy.** Wrangler will not deploy a new Worker whose `secrets.required` are unset, and `wrangler secret put` needs the Worker to exist, so the first deploy passes the secrets in a temporary file that is deleted afterwards:
+   ```sh
+   cd worker && op-sa run --environment <environment-id> -- sh -c 'f=$(mktemp) && trap "rm -f \"$f\"" EXIT && printf "INGEST_SECRET_TRADING=%s\nINGEST_SECRET_SUMMARY=%s\n" "$INGEST_SECRET_TRADING" "$INGEST_SECRET_SUMMARY" > "$f" && npx wrangler deploy --secrets-file "$f"'
+   ```
+   Later deploys are plain `npx wrangler deploy`; the secrets stay on the Worker. `workers_dev` and `preview_urls` stay `false`, so the screens have no URL that skips Access.
+5. **Check Access before any producer pushes real data:** `curl -i https://kindle.juansaldana.dev/screen/trade-plans.png` without the token must return a redirect or 403, not a PNG. With the two `CF-Access-Client-*` headers it must return the PNG.
 6. Put the service token's Client ID and Secret in `kindle/dashboard.conf` on the device (see [kindle/README.md](kindle/README.md)).
 
 ## Planned screens

@@ -7,17 +7,18 @@
   // Cloudflare Access. A *.workers.dev or preview URL would bypass Access.
   "workers_dev": false,
   "preview_urls": false,
+  // Custom domain. Cloudflare Access guards kindle.juansaldana.dev/screen/*.
+  "routes": [{ "pattern": "kindle.juansaldana.dev", "custom_domain": true }],
   "rules": [
     { "type": "Data", "globs": ["**/*.woff"], "fallthrough": true }
   ],
-  // Latest payload per source. No namespace id yet: local dev and tests
-  // simulate KV. Before the first deploy the owner creates the namespace and
-  // adds its "id" here (see README).
+  // Latest payload per source. Local dev and tests simulate KV.
   "kv_namespaces": [
-    { "binding": "DASHBOARD_KV" }
+    { "binding": "DASHBOARD_KV", "id": "19f887565c044b75b5ec083daf97ccd3" }
   ],
-  // Per-producer ingest secrets. Set with `wrangler secret put <NAME>` when
-  // deploying; locally they come from .dev.vars (see .dev.vars.example).
+  // Per-producer ingest secrets. The first deploy passes them with
+  // --secrets-file (README, Deploying); rotate later with `wrangler secret put`.
+  // Locally they come from .dev.vars (see .dev.vars.example).
   "secrets": {
     "required": ["INGEST_SECRET_TRADING", "INGEST_SECRET_SUMMARY"]
   },
