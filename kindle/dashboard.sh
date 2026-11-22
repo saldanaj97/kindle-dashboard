@@ -2,8 +2,9 @@
 # Kindle dashboard client. Fetches a screen PNG from the backend and shows it
 # with eips. Display only: the only network call is one GET per cycle.
 #
-# Usage: sh dashboard.sh [--once] [--dry-run]
+# Usage: sh dashboard.sh [--once] [--dry-run] [--check]
 #   --once      fetch and display one time, then exit
+#   --check     validate the config and exit (1 if invalid or already running)
 #   --dry-run   print the eips/lipc commands instead of running them
 #               (same as DRY_RUN=1). The fetch still runs.
 # Env: DASHBOARD_CONF overrides the config path (default: dashboard.conf next
@@ -11,12 +12,14 @@
 #      USB drive, and the script refuses a config there.
 
 ONCE=0
+CHECK=0
 DRY_RUN=${DRY_RUN:-0}
 for arg in "$@"; do
   case "$arg" in
     --once) ONCE=1 ;;
     --dry-run) DRY_RUN=1 ;;
-    -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+    --check) CHECK=1 ;;
+    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
     *) echo "unknown argument: $arg" >&2; exit 2 ;;
   esac
 done
@@ -83,9 +86,12 @@ if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE" 2>/dev/null)" 2>/dev/null; the
   echo "dashboard: already running (pid $(cat "$PIDFILE"))" >&2
   exit 1
 fi
+[ "$CHECK" = 1 ] && { echo "dashboard: config ok"; exit 0; }
 echo $$ > "$PIDFILE"
-trap 'rm -f "$PIDFILE"' EXIT
+# Wi-Fi back on whatever happens: an exit mid-suspend must not strand it off.
+trap 'rm -f "$PIDFILE"; [ "$wifi_off" = 1 ] && lipc-set-prop com.lab126.cmd wirelessEnable 1 >/dev/null 2>&1' EXIT
 trap 'exit 130' INT TERM
+wifi_off=0
 
 log() {
   line="$(date '+%Y-%m-%d %H:%M:%S') $*"
@@ -146,38 +152,66 @@ show() {
   fi
 }
 
-# A computer (not a wall charger) is on the USB cable.
-host_connected() { grep -qx configured /sys/class/udc/*/state 2>/dev/null; }
+# A computer (not a wall charger) is on the USB cable: the gadget has been
+# enumerated by a host, whether it is active or suspended.
+host_connected() { grep -qxE 'addressed|configured|suspended' /sys/class/udc/*/state 2>/dev/null; }
 
 # Deep sleep between refreshes (SLEEP_MODE=suspend): Wi-Fi off, the RTC alarm
 # armed, suspend to RAM, then Wi-Fi back on. E-ink keeps the image with no
 # power. The kernel refuses to suspend while Wi-Fi is connected or the display
 # is still updating (wake locks WLAN, hwtcon_wakelock), hence Wi-Fi off and a
-# pause first. Returns 1 when it could not suspend, so the caller sleeps
-# normally instead.
+# pause first. An early wake (power button, charger) suspends again for the
+# rest of the interval. Returns 1 when it could not suspend at all, so the
+# caller sleeps awake instead.
+# sleep in the background and wait for it, so TERM (initctl stop) is handled
+# at once instead of after the whole interval.
+nap() { sleep "$1" & wait $!; }
+
 RTC=/sys/class/rtc/rtc0
+# Arms the RTC alarm $1 seconds from now and checks it took; 1 if it did not.
+arm_alarm() {
+  now=$(cat "$RTC/since_epoch" 2>/dev/null)
+  case "$now" in ''|*[!0-9]*) return 1 ;; esac
+  target=$((now + $1))
+  echo 0 > "$RTC/wakealarm" 2>/dev/null
+  echo "$target" > "$RTC/wakealarm" 2>/dev/null
+  [ "$(cat "$RTC/wakealarm" 2>/dev/null)" = "$target" ]
+}
 suspend_for() {
   [ -w /sys/power/state ] && [ -w "$RTC/wakealarm" ] || return 1
   t0=$(date +%s)
   lipc-set-prop com.lab126.cmd wirelessEnable 0 >/dev/null 2>&1
+  wifi_off=1
   sleep 5
-  tries=0
-  slept=1
-  while [ "$tries" -lt 5 ]; do
-    tries=$((tries + 1))
+  refused=0
+  slept=0
+  while :; do
     left=$(( $1 - ($(date +%s) - t0) ))
-    [ "$left" -lt 10 ] && left=10
-    echo 0 > "$RTC/wakealarm"
-    echo $(( $(cat "$RTC/since_epoch") + left )) > "$RTC/wakealarm"
+    # Close enough: the rest is shorter than a suspend round trip.
+    [ "$left" -lt 15 ] && break
+    # A computer was plugged in (it may have woken us): stay awake for SSH.
+    host_connected && break
+    if ! arm_alarm "$left"; then
+      log "could not arm the RTC wake alarm; not suspending"
+      break
+    fi
     sync
-    if echo mem > /sys/power/state 2>/dev/null; then slept=0; break; fi
-    sleep 3
+    if echo mem > /sys/power/state 2>/dev/null; then
+      slept=1
+    else
+      refused=$((refused + 1))
+      [ "$refused" -ge 5 ] && break
+      sleep 3
+    fi
   done
   echo 0 > "$RTC/wakealarm" 2>/dev/null
   lipc-set-prop com.lab126.cmd wirelessEnable 1 >/dev/null 2>&1
-  if [ "$slept" -ne 0 ]; then
-    log "suspend refused $tries times (wake lock held); sleeping awake this cycle"
-    return 1
+  wifi_off=0
+  if [ "$slept" -ne 1 ]; then
+    [ "$refused" -ge 5 ] && log "suspend refused $refused times (wake lock held); sleeping awake this cycle"
+    left=$(( $1 - ($(date +%s) - t0) ))
+    [ "$left" -gt 0 ] && nap "$left"
+    return 0
   fi
   # Wi-Fi took about 5 s to reconnect in testing; give it up to a minute.
   n=0
@@ -195,7 +229,7 @@ wait_next() {
   if [ "$SLEEP_MODE" = suspend ] && [ "$DRY_RUN" != 1 ] && ! host_connected; then
     suspend_for "$REFRESH_SECONDS" && return 0
   fi
-  sleep "$REFRESH_SECONDS"
+  nap "$REFRESH_SECONDS"
 }
 
 if [ "$DRY_RUN" = 1 ]; then

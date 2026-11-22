@@ -1,4 +1,4 @@
-**Partly tested on the device.** One full cycle works on the real Kindle against the deployed Worker behind Cloudflare Access. The background loop, sleep and Wi-Fi recovery are not tested yet.
+**Tested on the device.** The loop runs on the real Kindle against the deployed Worker behind Cloudflare Access, in kiosk mode with deep sleep between refreshes. Battery life over days is not measured yet.
 
 # Kindle client
 
@@ -56,9 +56,12 @@ Turn it off: `rm /mnt/us/KINDLE_DASHBOARD_KIOSK && reboot`. To remove it complet
 
 How it behaves at boot:
 
+- With the switch file missing it changes nothing, not even the USB mode, so the Kindle and its USB drive mode behave as stock.
 - It waits for the Kindle's storage (`/mnt/us`) to be mounted on the Kindle. While a computer has it mounted as a drive, the script leaves the USB mode and the interface alone, and you get the normal Kindle ("USB drive mode"). Once you eject the drive or unplug the cable, the kiosk starts.
 - It then switches USB to network mode and starts dropbear, as Jobman's "Enable USB SSH" does, so SSH over USB works without the Jobman app.
-- It stops the interface only if the switch file exists and, when a computer is attached, USB SSH is up. Otherwise the normal Kindle stays, so the device is always recoverable.
+- It stops the interface only if `dashboard.sh --check` passes and, when a computer is attached, USB SSH is up. Otherwise the normal Kindle stays, so the device is always recoverable.
+- If the dashboard loop ever exits, it starts the Kindle interface again instead of leaving a frozen screen.
+- dropbear runs in its own session, so SSH survives the kiosk job stopping.
 - Stopping `x` and `lab126_gui` takes the whole interface down; `wifid`, `cmd`, `powerd`, `volumd` and `dbus` keep running, so Wi-Fi works.
 - Logs go to `/var/local/dashboard/kiosk.log`.
 
@@ -83,7 +86,7 @@ See `dashboard.conf.example`. Required: `BASE_URL` (must be `https://`), `SCREEN
 
 ## Deep sleep (`SLEEP_MODE=suspend`)
 
-Between refreshes the loop turns Wi-Fi off, arms the RTC alarm (`/sys/class/rtc/rtc0/wakealarm`), suspends to RAM (`echo mem > /sys/power/state`), and turns Wi-Fi back on after waking. E-ink keeps the image with no power, so the Kindle can run on battery. Each refresh logs the battery level.
+Between refreshes the loop turns Wi-Fi off, arms the RTC alarm (`/sys/class/rtc/rtc0/wakealarm`), suspends to RAM (`echo mem > /sys/power/state`), and turns Wi-Fi back on after waking. E-ink keeps the image with no power, so the Kindle can run on battery. Each successful refresh logs the battery level.
 
 - It never suspends while a computer is on the USB cable (`/sys/class/udc/*/state` is `configured`), so plugging one in brings SSH back within one refresh.
 - The kernel refuses to suspend while Wi-Fi is connected or the display is still updating (wake locks `WLAN`, `hwtcon_wakelock`, `cmdq_wakelock`); hence Wi-Fi off and a 5 s pause first. If it still refuses after 5 tries, that cycle sleeps awake and logs `suspend refused`.
